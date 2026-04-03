@@ -1,0 +1,426 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Avellaneda Spots - Mapa interactivo</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    background: #0c0c14;
+    color: #e8e8ed;
+  }
+  header {
+    text-align: center;
+    padding: 1.5rem 1rem 0.8rem;
+  }
+  header h1 {
+    font-size: clamp(1.6rem, 5vw, 2.4rem);
+    font-weight: 800;
+    letter-spacing: -0.03em;
+    background: linear-gradient(135deg, #ff6b35, #ffd166);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  header p {
+    color: #6b6b80;
+    font-size: 0.75rem;
+    margin-top: 0.3rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    font-weight: 300;
+  }
+  #map {
+    width: 100%;
+    height: 55vh;
+    min-height: 350px;
+    border-top: 1px solid #ffffff0a;
+    border-bottom: 1px solid #ffffff0a;
+  }
+  .leaflet-popup-content-wrapper {
+    background: #1a1a28ee;
+    color: #e8e8ed;
+    border-radius: 10px;
+    border: 1px solid #ffffff12;
+    backdrop-filter: blur(12px);
+  }
+  .leaflet-popup-tip { background: #1a1a28ee; }
+  .leaflet-popup-content {
+    margin: 12px 16px;
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    line-height: 1.5;
+  }
+  .leaflet-popup-content .popup-name {
+    font-weight: 700;
+    font-size: 0.95rem;
+    margin-bottom: 4px;
+  }
+  .leaflet-popup-content .popup-desc {
+    font-size: 0.8rem;
+    color: #8888a0;
+  }
+  .leaflet-popup-content .popup-addr {
+    font-size: 0.7rem;
+    color: #555570;
+    font-family: monospace;
+    margin-top: 6px;
+  }
+  .leaflet-popup-content a {
+    color: #ffd166;
+    text-decoration: none;
+    font-size: 0.75rem;
+  }
+  .leaflet-popup-content a:hover { text-decoration: underline; }
+
+  #legend {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    z-index: 1000;
+    background: #1a1a28dd;
+    backdrop-filter: blur(8px);
+    border-radius: 10px;
+    padding: 10px 14px;
+    border: 1px solid #ffffff12;
+    font-size: 0.72rem;
+  }
+  #legend h3 {
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: #6b6b80;
+    margin-bottom: 6px;
+  }
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 3px;
+    color: #aaa;
+  }
+  .legend-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  #poi-list {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 0.5rem 0.8rem 3rem;
+  }
+  .poi-card {
+    background: #15151f;
+    padding: 0.9rem 1.1rem;
+    display: grid;
+    grid-template-columns: 2rem 1fr;
+    gap: 0.7rem;
+    align-items: start;
+    cursor: pointer;
+    border-left: 3px solid transparent;
+    transition: background 0.2s, border-color 0.2s;
+  }
+  .poi-card:first-child { border-radius: 12px 12px 0 0; }
+  .poi-card:last-child { border-radius: 0 0 12px 12px; }
+  .poi-card:hover, .poi-card.active {
+    background: #1c1c2a;
+    border-left-color: #ff6b35;
+  }
+  .poi-num {
+    width: 2rem;
+    height: 2rem;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.7rem;
+    font-weight: 700;
+    color: #fff;
+    flex-shrink: 0;
+  }
+  .poi-name { font-weight: 700; font-size: 0.88rem; margin-bottom: 2px; }
+  .poi-desc { font-size: 0.78rem; color: #8888a0; line-height: 1.45; font-weight: 300; }
+  .poi-addr { font-size: 0.63rem; color: #555570; margin-top: 4px; font-family: monospace; }
+
+  footer {
+    text-align: center;
+    padding: 1rem;
+    color: #333345;
+    font-size: 0.6rem;
+    font-family: monospace;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Avellaneda Spots</h1>
+  <p>Floresta, Buenos Aires &middot; Recorrido a pie</p>
+</header>
+
+<div style="position:relative;">
+  <div id="map"></div>
+  <div id="legend">
+    <h3>Categor&iacute;as</h3>
+    <div class="legend-item"><span class="legend-dot" style="background:#4CAF50"></span> Comida</div>
+    <div class="legend-item"><span class="legend-dot" style="background:#E91E63"></span> Restaurante</div>
+    <div class="legend-item"><span class="legend-dot" style="background:#2196F3"></span> Ropa</div>
+    <div class="legend-item"><span class="legend-dot" style="background:#FF9800"></span> Bazar</div>
+    <div class="legend-item"><span class="legend-dot" style="background:#9C27B0"></span> Juguter&iacute;a</div>
+    <div class="legend-item"><span class="legend-dot" style="background:#78909C"></span> Calle</div>
+  </div>
+</div>
+
+<div id="poi-list"></div>
+
+<footer>hecho con cari&ntilde;o &middot; floresta 2026</footer>
+
+<script>
+const POIS = [
+  {
+    name: "KAP Mayorista",
+    desc: "Mayorista de productos coreanos y asiáticos. Ideal para comprar en cantidad.",
+    address: "Av. Avellaneda 3885",
+    lat: -34.6297031, lng: -58.4851436,
+    category: "comida", color: "#4CAF50",
+    gmaps: "https://maps.app.goo.gl/x88GJiWH8k6BhtcCA"
+  },
+  {
+    name: "REVEL",
+    desc: "Carteras, mochilas y accesorios. Diseños originales con buena relación calidad-precio.",
+    address: "Av. Avellaneda 3829",
+    lat: -34.6291204, lng: -58.4827588,
+    category: "ropa", color: "#2196F3",
+    gmaps: "https://maps.app.goo.gl/y6T2GH9Dp4MXkShm9"
+  },
+  {
+    name: "Juguetería",
+    desc: "Juguetería sobre Av. Avellaneda.",
+    address: "Av. Avellaneda 3807",
+    lat: -34.6289687, lng: -58.4824775,
+    category: "jugueteria", color: "#9C27B0",
+    gmaps: null
+  },
+  {
+    name: "Galería (3727)",
+    desc: "Galería comercial con locales de ropa.",
+    address: "Av. Avellaneda 3727",
+    lat: -34.6284178, lng: -58.4814591,
+    category: "ropa", color: "#2196F3",
+    gmaps: null
+  },
+  {
+    name: "Galería (3697)",
+    desc: "Galería comercial con locales de ropa.",
+    address: "Av. Avellaneda 3697",
+    lat: -34.6282112, lng: -58.4810773,
+    category: "ropa", color: "#2196F3",
+    gmaps: "https://maps.app.goo.gl/PYM8aebcwqVrpYXw7"
+  },
+  {
+    name: "Mohicano",
+    desc: "Local de ropa en la zona de Avellaneda.",
+    address: "Av. Avellaneda (zona Boyacá)",
+    lat: -34.62885, lng: -58.4804997,
+    category: "ropa", color: "#2196F3",
+    gmaps: "https://maps.app.goo.gl/udjTcNzgQMM5zdWTA"
+  },
+  {
+    name: "Terra",
+    desc: "Ropa casual masculina con buenos precios. Probadores, tarjeta y buena atención.",
+    address: "Joaquín V. González 320",
+    lat: -34.629759, lng: -58.48064,
+    category: "ropa", color: "#2196F3",
+    gmaps: "https://maps.app.goo.gl/QBPrD8Ygd2LCvgwx7"
+  },
+  {
+    name: "Paradox",
+    desc: "Marca de moda con diseños propios.",
+    address: "Zona Avellaneda",
+    lat: -34.6258319, lng: -58.4791781,
+    category: "ropa", color: "#2196F3",
+    gmaps: "https://maps.app.goo.gl/LXye9x73VjWTu12p6"
+  },
+  {
+    name: "Mayorista Oppa",
+    desc: "Bazar mayorista. Accesorios y chucherías importadas.",
+    address: "Av. Avellaneda 3240",
+    lat: -34.6277455, lng: -58.4758974,
+    category: "bazar", color: "#FF9800",
+    gmaps: "https://maps.app.goo.gl/1A43WfpM5CGJcEre6"
+  },
+  {
+    name: "JKM02 Jeans",
+    desc: "Jeans y ropa, local sobre Helguera.",
+    address: "Helguera 454",
+    lat: -34.6265729, lng: -58.4749761,
+    category: "ropa", color: "#2196F3",
+    gmaps: "https://maps.app.goo.gl/2whWeuoRjZS6V8Y99"
+  },
+  {
+    name: "Inquieta Denim",
+    desc: "Mayorista de jeans.",
+    address: "Helguera 493",
+    lat: -34.6260278, lng: -58.4747663,
+    category: "ropa", color: "#2196F3",
+    gmaps: "https://maps.app.goo.gl/mM74TxFtW9eUJ6vWA"
+  },
+  {
+    name: "POP SUGAR",
+    desc: "Local de ropa y accesorios.",
+    address: "Zona Avellaneda",
+    lat: -34.626562, lng: -58.473174,
+    category: "ropa", color: "#2196F3",
+    gmaps: "https://maps.app.goo.gl/uo9kvzw28B5PyyCk9"
+  },
+  {
+    name: "Calle Argerich",
+    desc: "Calle con varios locales de ropa de hombre. Zona para recorrer.",
+    address: "Argerich (entre Avellaneda y Neuquén)",
+    lat: -34.6272387, lng: -58.4728499,
+    category: "calle", color: "#78909C",
+    gmaps: "https://maps.app.goo.gl/s91NHS3x1bBynLkQ7"
+  },
+  {
+    name: "Hawaii Market",
+    desc: "Supermercado coreano. Productos asiáticos, snacks importados y kimchi casero.",
+    address: "Morón 3269",
+    lat: -34.6253062, lng: -58.4772129,
+    category: "comida", color: "#4CAF50",
+    gmaps: "https://maps.app.goo.gl/jx9osHMCooQaywt3A"
+  },
+  {
+    name: "Maum",
+    desc: "Restaurante coreano. Punto final del recorrido.",
+    address: "Zona Floresta",
+    lat: -34.6239448, lng: -58.4764035,
+    category: "restaurante", color: "#E91E63",
+    gmaps: "https://maps.app.goo.gl/etpjRptqCSv1ydSU9"
+  }
+];
+
+// --- Map setup ---
+const map = L.map('map', {
+  center: [-34.627, -58.479],
+  zoom: 16,
+  zoomControl: true
+});
+
+L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+  attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a> &copy; <a href="https://carto.com/">CARTO</a>',
+  subdomains: 'abcd',
+  maxZoom: 19
+}).addTo(map);
+
+// --- Markers ---
+const markers = [];
+
+POIS.forEach((poi, i) => {
+  const marker = L.circleMarker([poi.lat, poi.lng], {
+    radius: 10,
+    fillColor: poi.color,
+    color: '#0c0c14',
+    weight: 2,
+    opacity: 1,
+    fillOpacity: 0.9
+  }).addTo(map);
+
+  // Number label
+  const numIcon = L.divIcon({
+    className: '',
+    html: `<div style="
+      width:22px;height:22px;border-radius:50%;
+      background:${poi.color};color:#fff;
+      display:flex;align-items:center;justify-content:center;
+      font-size:11px;font-weight:700;font-family:system-ui,sans-serif;
+      border:2px solid #0c0c14;
+      box-shadow:0 0 8px ${poi.color}66;
+    ">${i+1}</div>`,
+    iconSize: [22, 22],
+    iconAnchor: [11, 11]
+  });
+  const numMarker = L.marker([poi.lat, poi.lng], { icon: numIcon, interactive: false }).addTo(map);
+
+  // Popup
+  let popupHtml = `<div class="popup-name" style="color:${poi.color}">${poi.name}</div>`;
+  popupHtml += `<div class="popup-desc">${poi.desc}</div>`;
+  popupHtml += `<div class="popup-addr">${poi.address}</div>`;
+  if (poi.gmaps) {
+    popupHtml += `<a href="${poi.gmaps}" target="_blank" rel="noopener">Abrir en Google Maps &rarr;</a>`;
+  }
+  marker.bindPopup(popupHtml);
+
+  markers.push({ marker, numMarker, poi });
+});
+
+// --- Walking route ---
+// Build OSRM URL for foot routing through all waypoints
+const coords = POIS.map(p => `${p.lng},${p.lat}`).join(';');
+const osrmUrl = `https://router.project-osrm.org/route/v1/foot/${coords}?overview=full&geometries=geojson`;
+
+let routeLine = null;
+
+fetch(osrmUrl)
+  .then(r => r.json())
+  .then(data => {
+    if (data.code === 'Ok' && data.routes && data.routes[0]) {
+      const geojson = data.routes[0].geometry;
+      routeLine = L.geoJSON(geojson, {
+        style: {
+          color: '#ff6b35',
+          weight: 3,
+          opacity: 0.6,
+          dashArray: '10 8',
+          lineCap: 'round'
+        }
+      }).addTo(map);
+      routeLine.bringToBack();
+    } else {
+      drawFallbackRoute();
+    }
+  })
+  .catch(() => drawFallbackRoute());
+
+function drawFallbackRoute() {
+  const latlngs = POIS.map(p => [p.lat, p.lng]);
+  routeLine = L.polyline(latlngs, {
+    color: '#ff6b35',
+    weight: 3,
+    opacity: 0.5,
+    dashArray: '10 8',
+    lineCap: 'round'
+  }).addTo(map);
+  routeLine.bringToBack();
+}
+
+// --- POI list ---
+const listEl = document.getElementById('poi-list');
+
+POIS.forEach((poi, i) => {
+  const card = document.createElement('div');
+  card.className = 'poi-card';
+  card.innerHTML = `
+    <div class="poi-num" style="background:${poi.color}">${i+1}</div>
+    <div>
+      <div class="poi-name">${poi.name}</div>
+      <div class="poi-desc">${poi.desc}</div>
+      <div class="poi-addr">${poi.address}</div>
+    </div>
+  `;
+  card.addEventListener('click', () => {
+    map.setView([poi.lat, poi.lng], 17, { animate: true });
+    markers[i].marker.openPopup();
+    document.querySelectorAll('.poi-card').forEach(c => c.classList.remove('active'));
+    card.classList.add('active');
+  });
+  listEl.appendChild(card);
+});
+</script>
+
+</body>
+</html>
