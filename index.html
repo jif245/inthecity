@@ -240,7 +240,7 @@ const POIS = [
   },
   {
     name: "Paradox",
-    desc: "Marca de moda con diseños propios.",
+    desc: "Local de jeans.",
     address: "Zona Avellaneda",
     lat: -34.6258319, lng: -58.4791781,
     category: "ropa", color: "#2196F3",
@@ -387,7 +387,7 @@ async function buildRoute() {
       if (data.code === 'Ok' && data.routes && data.routes[0]) {
         const dist = data.routes[0].distance;
         // Only use OSRM route if it's reasonable (< 3x straight line, minimum 50m tolerance)
-        if (dist < Math.max(straight * 3, straight + 50)) {
+        if (dist < Math.max(straight * 2, straight + 50)) {
           L.geoJSON(data.routes[0].geometry, { style }).addTo(routeGroup);
           drawn = true;
         }
