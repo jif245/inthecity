@@ -359,44 +359,49 @@ POIS.forEach((poi, i) => {
 });
 
 // --- Walking route ---
-// Build OSRM URL for foot routing through all waypoints
-const coords = POIS.map(p => `${p.lng},${p.lat}`).join(';');
-const osrmUrl = `https://router.project-osrm.org/route/v1/foot/${coords}?overview=full&geometries=geojson`;
+// Route each segment individually via OSRM. If OSRM returns a route
+// that's suspiciously long (>3x the straight-line distance), fall back
+// to a straight line for that segment.
 
-let routeLine = null;
-
-fetch(osrmUrl)
-  .then(r => r.json())
-  .then(data => {
-    if (data.code === 'Ok' && data.routes && data.routes[0]) {
-      const geojson = data.routes[0].geometry;
-      routeLine = L.geoJSON(geojson, {
-        style: {
-          color: '#ff6b35',
-          weight: 3,
-          opacity: 0.6,
-          dashArray: '10 8',
-          lineCap: 'round'
-        }
-      }).addTo(map);
-      routeLine.bringToBack();
-    } else {
-      drawFallbackRoute();
-    }
-  })
-  .catch(() => drawFallbackRoute());
-
-function drawFallbackRoute() {
-  const latlngs = POIS.map(p => [p.lat, p.lng]);
-  routeLine = L.polyline(latlngs, {
-    color: '#ff6b35',
-    weight: 3,
-    opacity: 0.5,
-    dashArray: '10 8',
-    lineCap: 'round'
-  }).addTo(map);
-  routeLine.bringToBack();
+function haversine(lat1, lng1, lat2, lng2) {
+  const R = 6371000;
+  const toRad = d => d * Math.PI / 180;
+  const dLat = toRad(lat2 - lat1), dLng = toRad(lng2 - lng1);
+  const a = Math.sin(dLat/2)**2 + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng/2)**2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
 }
+
+async function buildRoute() {
+  const routeGroup = L.layerGroup().addTo(map);
+  const style = { color: '#ff6b35', weight: 3, opacity: 0.6, dashArray: '10 8', lineCap: 'round' };
+
+  for (let i = 0; i < POIS.length - 1; i++) {
+    const a = POIS[i], b = POIS[i+1];
+    const straight = haversine(a.lat, a.lng, b.lat, b.lng);
+    let drawn = false;
+
+    try {
+      const url = `https://router.project-osrm.org/route/v1/foot/${a.lng},${a.lat};${b.lng},${b.lat}?overview=full&geometries=geojson`;
+      const resp = await fetch(url);
+      const data = await resp.json();
+      if (data.code === 'Ok' && data.routes && data.routes[0]) {
+        const dist = data.routes[0].distance;
+        // Only use OSRM route if it's reasonable (< 3x straight line, minimum 50m tolerance)
+        if (dist < Math.max(straight * 3, straight + 50)) {
+          L.geoJSON(data.routes[0].geometry, { style }).addTo(routeGroup);
+          drawn = true;
+        }
+      }
+    } catch(e) { /* fallback below */ }
+
+    if (!drawn) {
+      L.polyline([[a.lat, a.lng], [b.lat, b.lng]], style).addTo(routeGroup);
+    }
+  }
+  routeGroup.bringToBack();
+}
+
+buildRoute();
 
 // --- POI list ---
 const listEl = document.getElementById('poi-list');
