@@ -180,6 +180,15 @@
     <div class="legend-item"><span class="legend-dot" style="background:#FF9800"></span> 🎁 Bazar</div>
     <div class="legend-item"><span class="legend-dot" style="background:#F06292"></span> 👧 Ropa infantil</div>
     <div class="legend-item"><span class="legend-dot" style="background:#9C27B0"></span> 🧸 Juguter&iacute;a</div>
+  <button id="emoji-toggle" onclick="
+    showEmojis = !showEmojis;
+    this.textContent = showEmojis ? '🔢 Números' : '😀 Emojis';
+    markers.forEach(function(m, i) { m.numMarker.setIcon(makeIcon(m.poi, i, showEmojis)); });
+  " style="
+    background:#1a1a28dd;color:#e8e8ed;border:1px solid #ffffff12;
+    border-radius:8px;padding:6px 12px;font-size:13px;cursor:pointer;
+    backdrop-filter:blur(8px);margin-top:6px;width:100%;
+  ">😀 Emojis</button>
   </div>
 </div>
 
@@ -401,26 +410,7 @@ POIS.forEach((poi, i) => {
   markers.push({ marker, numMarker, poi });
 });
 
-// --- Toggle button ---
-const toggleBtn = L.control({ position: 'topright' });
-toggleBtn.onAdd = function() {
-  const div = L.DomUtil.create('div');
-  div.innerHTML = `<button id="emoji-toggle" style="
-    background:#1a1a28dd;color:#e8e8ed;border:1px solid #ffffff12;
-    border-radius:8px;padding:6px 10px;font-size:14px;cursor:pointer;
-    backdrop-filter:blur(8px);margin-top:4px;
-  ">😀</button>`;
-  div.firstChild.addEventListener('click', function(e) {
-    e.stopPropagation();
-    showEmojis = !showEmojis;
-    this.textContent = showEmojis ? '🔢' : '😀';
-    markers.forEach((m, i) => {
-      m.numMarker.setIcon(makeIcon(m.poi, i, showEmojis));
-    });
-  });
-  return div;
-};
-toggleBtn.addTo(map);
+// Toggle is in the legend panel HTML, uses global showEmojis/markers/makeIcon
 
 // --- Walking route ---
 // Route each segment individually via OSRM. If OSRM returns a route
