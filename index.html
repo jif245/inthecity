@@ -332,21 +332,34 @@ L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
   maxZoom: 19
 }).addTo(map);
 
+// --- Category emoji map ---
+const CATEGORY_EMOJI = {
+  inicio: '🏠', comida: '🍜', restaurante: '🍽️',
+  ropa: '👖', camisas: '👔', galeria: '🏬',
+  bazar: '🎁', jugueteria: '🧸'
+};
+
 // --- Markers ---
 const markers = [];
+let showEmojis = false;
 
-POIS.forEach((poi, i) => {
-  const marker = L.circleMarker([poi.lat, poi.lng], {
-    radius: 10,
-    fillColor: poi.color,
-    color: '#0c0c14',
-    weight: 2,
-    opacity: 1,
-    fillOpacity: 0.9
-  }).addTo(map);
-
-  // Number label
-  const numIcon = L.divIcon({
+function makeIcon(poi, i, emoji) {
+  if (emoji) {
+    return L.divIcon({
+      className: '',
+      html: `<div style="
+        width:28px;height:28px;border-radius:50%;
+        background:#1a1a28dd;
+        display:flex;align-items:center;justify-content:center;
+        font-size:16px;
+        border:2px solid ${poi.color};
+        box-shadow:0 0 8px ${poi.color}66;
+      ">${CATEGORY_EMOJI[poi.category] || '📍'}</div>`,
+      iconSize: [28, 28],
+      iconAnchor: [14, 14]
+    });
+  }
+  return L.divIcon({
     className: '',
     html: `<div style="
       width:22px;height:22px;border-radius:50%;
@@ -359,7 +372,22 @@ POIS.forEach((poi, i) => {
     iconSize: [22, 22],
     iconAnchor: [11, 11]
   });
-  const numMarker = L.marker([poi.lat, poi.lng], { icon: numIcon, interactive: false }).addTo(map);
+}
+
+POIS.forEach((poi, i) => {
+  const marker = L.circleMarker([poi.lat, poi.lng], {
+    radius: 10,
+    fillColor: poi.color,
+    color: '#0c0c14',
+    weight: 2,
+    opacity: 1,
+    fillOpacity: 0.9
+  }).addTo(map);
+
+  const numMarker = L.marker([poi.lat, poi.lng], {
+    icon: makeIcon(poi, i, false),
+    interactive: false
+  }).addTo(map);
 
   // Popup
   let popupHtml = `<div class="popup-name" style="color:${poi.color}">${poi.name}</div>`;
@@ -372,6 +400,27 @@ POIS.forEach((poi, i) => {
 
   markers.push({ marker, numMarker, poi });
 });
+
+// --- Toggle button ---
+const toggleBtn = L.control({ position: 'topright' });
+toggleBtn.onAdd = function() {
+  const div = L.DomUtil.create('div');
+  div.innerHTML = `<button id="emoji-toggle" style="
+    background:#1a1a28dd;color:#e8e8ed;border:1px solid #ffffff12;
+    border-radius:8px;padding:6px 10px;font-size:14px;cursor:pointer;
+    backdrop-filter:blur(8px);margin-top:4px;
+  ">😀</button>`;
+  div.firstChild.addEventListener('click', function(e) {
+    e.stopPropagation();
+    showEmojis = !showEmojis;
+    this.textContent = showEmojis ? '🔢' : '😀';
+    markers.forEach((m, i) => {
+      m.numMarker.setIcon(makeIcon(m.poi, i, showEmojis));
+    });
+  });
+  return div;
+};
+toggleBtn.addTo(map);
 
 // --- Walking route ---
 // Route each segment individually via OSRM. If OSRM returns a route
